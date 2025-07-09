@@ -130,6 +130,10 @@ def generate_website():
             "success": False,
             "error": f"An internal server error occurred. Please check the server logs. Details: {str(e)}"
         }), 500
+    
+@app.route('/ping' , methods=['GET'])
+def pingtest():
+   return "pong"
 
 if __name__ == '__main__':
     # The app runs in debug mode, which is great for development.
