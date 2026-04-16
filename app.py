@@ -39,14 +39,12 @@ def generate_website():
         if not user_prompt:
             return jsonify({"error": "A prompt is required to generate the website."}), 400
 
-        # A detailed and robust prompt to guide the AI model
         enhanced_prompt = f"""
         You are an expert web developer. Your task is to create a complete, single-file, responsive HTML website based on the user's request.
 
         User Request: "{user_prompt}"
         
         **CRITICAL REQUIREMENTS:**
-
 
         1.  **Aesthetic Excellence & Modern Design:**
             * **Design:** Create a clean, elegant, and professional design. Pay meticulous attention to spacing (padding/margins), alignment, and visual hierarchy. The layout should feel spacious and uncluttered.
@@ -68,36 +66,32 @@ def generate_website():
             * **Semantic HTML:** Use modern HTML5 elements (`<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`, etc.).
             * **Clean Output:** Return ONLY the raw HTML code. Do not wrap it in markdown formatting (like ```html ... ```) or add any explanatory text outside the HTML itself.
         
-        3. Images in code :
-            1. You can put images in the code if you think it really adds on to the look of the frontend .
-            2. Use placeholder images from https://picsum.photos/width/height. These images will be replaced by a separate system in production. Your only responsibility is to provide a URL with appropriate width and height.
-            3. Our System can even apply two filters grayscale and blur if required you can use them. Below is the example usage of how to use it
-            4. Example URLS :
-                > "https://picsum.photos/200/300" -- This will give a image of width 200px and height 300px
-                > "https://picsum.photos/200/300?grayscale" -- This will give a image of width 200px and height 300px with grayscale filter applied
-                > "https://picsum.photos/200/300/?blur=5 -- This will give a image of width 200px and height 300px with blur filter applied
+        3. Images in code:
+            1. You can put images in the code if you think it really adds on to the look of the frontend.
+            2. Use placeholder images from https://picsum.photos/width/height.
+            3. Example URLS:
+                > "https://picsum.photos/200/300"
+                > "https://picsum.photos/200/300?grayscale"
+                > "https://picsum.photos/200/300/?blur=5"
 
         4. Content:
-            * ** The content of the website should be based on the user request.**
-            * ** Do not use any lorem ipsum or placeholder text. The content should be relevant to the user request.**
-            * ** Do not use any placeholder images. The images should be relevant to the user request.**
-            * ** If the images are used make sure that they fit exactly in case of design, size and theme.**
-            * ** Make sure that there are various sections in the website like header, footer, main content, sidebar, etc.**
-            * ** All the sections should be properly aligned and spaced.**
-            * ** The content should be relavant and interesting.** 
-            * ** The pages should have a lot of relevant content such that they occupy the complete height and width of the screen.**
-            * ** Add slider, toggle group, dropdown, hover card, Combobox, and other interactive elements to enhance the user experience whenever required.**
-            * ** Add animations and transitions to the elements to make the website more interactive and engaging.**
+            * The content of the website should be based on the user request.
+            * Do not use any lorem ipsum or placeholder text.
+            * Make sure that there are various sections in the website like header, footer, main content, sidebar, etc.
+            * All the sections should be properly aligned and spaced.
+            * The pages should have a lot of relevant content such that they occupy the complete height and width of the screen.
+            * Add slider, toggle group, dropdown, hover card, Combobox, and other interactive elements to enhance the user experience whenever required.
+            * Add animations and transitions to the elements to make the website more interactive and engaging.
 
         5. Footer:
-            * ** The footer should contain relavant links of the tabs generated. **
-            * ** The tabs in the footer must be accessible and should be easy to navigate.**
-            * ** The footer should be visually appealing and should match the overall design of the website.**
+            * The footer should contain relevant links of the tabs generated.
+            * The tabs in the footer must be accessible and should be easy to navigate.
+            * The footer should be visually appealing and should match the overall design of the website.
         """
 
-        # NEW SDK: stream using client.models.generate_content_stream()
-        response_stream = client.models.generate_content_stream(
-            model="gemini-3-flash-preview",             # ← updated
+        # Non-streaming call — avoids Gunicorn worker timeout on long generations
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
             contents=enhanced_prompt,
             config=types.GenerateContentConfig(
                 temperature=1,
@@ -105,21 +99,18 @@ def generate_website():
             ),
         )
 
-        generated_html = ""
-        for chunk in response_stream:
-            # New SDK: chunk.text works the same way
-            if chunk.text:
-                generated_html += chunk.text
+        generated_html = response.text or ""
 
         # Clean up potential markdown formatting from the response
-        if generated_html.strip().startswith('```html'):
-            generated_html = generated_html.strip()[7:]  # Remove ```html
-            if generated_html.strip().endswith('```'):
-                generated_html = generated_html.strip()[:-3]  # Remove ```
+        cleaned = generated_html.strip()
+        if cleaned.startswith('```html'):
+            cleaned = cleaned[7:]
+        if cleaned.endswith('```'):
+            cleaned = cleaned[:-3]
 
         return jsonify({
             "success": True,
-            "html": generated_html.strip(),
+            "html": cleaned.strip(),
             "message": "Website generated successfully"
         })
 
