@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai                          # NEW unified SDK
+from google.genai import types                    # NEW: for config types
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -10,16 +11,16 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes, allowing your frontend to connect
 
-# Configure the Gemini API client
+# Configure the Gemini API client using the new SDK
 try:
-    # It's good practice to configure the client once when the app starts
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Warning: GEMINI_API_KEY environment variable not set.")
         print("Please set your Gemini API key in a .env file")
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)        # NEW: client-based init
 except Exception as e:
     print(f"Error configuring Google AI client: {e}")
+    client = None
 
 
 @app.route('/health', methods=['GET'])
@@ -27,16 +28,17 @@ def health_check():
     """Health check endpoint to confirm the server is running."""
     return jsonify({"status": "healthy", "message": "Flask server is running"})
 
+
 @app.route('/generate-website', methods=['POST'])
 def generate_website():
     """Endpoint to generate a website using the Gemini API."""
     try:
         data = request.get_json()
         user_prompt = data.get('prompt', '')
-        
+
         if not user_prompt:
             return jsonify({"error": "A prompt is required to generate the website."}), 400
-        
+
         # A detailed and robust prompt to guide the AI model
         enhanced_prompt = f"""
         You are an expert web developer. Your task is to create a complete, single-file, responsive HTML website based on the user's request.
@@ -92,51 +94,47 @@ def generate_website():
             * ** The tabs in the footer must be accessible and should be easy to navigate.**
             * ** The footer should be visually appealing and should match the overall design of the website.**
         """
-        
-        # Initialize the generative model
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
-        
-        # Generate content using streaming for better performance
-        # We removed the explicit GenerationConfig as the default response type is 'text/plain',
-        # which is what we need. This avoids library version conflicts.
-        response_stream = model.generate_content(
-            contents=[enhanced_prompt],
-            stream=True
+
+        # NEW SDK: stream using client.models.generate_content_stream()
+        response_stream = client.models.generate_content_stream(
+            model="gemini-3-flash-preview",             # ← updated
+            contents=enhanced_prompt,
+            config=types.GenerateContentConfig(
+                temperature=1,
+                max_output_tokens=65536,
+            ),
         )
-        
+
         generated_html = ""
         for chunk in response_stream:
-            # Ensure chunk has text before appending
+            # New SDK: chunk.text works the same way
             if chunk.text:
                 generated_html += chunk.text
-        
-        # A more robust way to clean up potential markdown formatting from the response
+
+        # Clean up potential markdown formatting from the response
         if generated_html.strip().startswith('```html'):
-            generated_html = generated_html.strip()[7:] # Remove ```html
+            generated_html = generated_html.strip()[7:]  # Remove ```html
             if generated_html.strip().endswith('```'):
-                generated_html = generated_html.strip()[:-3] # Remove ```
-        
+                generated_html = generated_html.strip()[:-3]  # Remove ```
+
         return jsonify({
             "success": True,
             "html": generated_html.strip(),
             "message": "Website generated successfully"
         })
-        
+
     except Exception as e:
-        # Log the full error for easier debugging on the server side
         print(f"Error during website generation: {e}")
-        # Return a helpful error message to the client
         return jsonify({
             "success": False,
             "error": f"An internal server error occurred. Please check the server logs. Details: {str(e)}"
         }), 500
-    
-@app.route('/ping' , methods=['GET'])
+
+
+@app.route('/ping', methods=['GET'])
 def pingtest():
-   return "pong"
+    return "pong"
+
 
 if __name__ == '__main__':
-    # The app runs in debug mode, which is great for development.
-    # For production, consider using a more robust WSGI server like Gunicorn.
     app.run(debug=True)
- 
