@@ -1,0 +1,27 @@
+[project]
+name = "voicenav"
+version = "0.1.0"
+description = "Speak a task; a browser agent does it. Jev (via OpenRouter) chooses actions, Fish Audio hears you."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["browser-harness==0.1.13", "httpx[http2]>=0.28,<1"]
+
+[project.scripts]
+voicenav = "voicenav.demo:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8.4,<9", "ruff>=0.14,<1", "pillow>=11,<13"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
