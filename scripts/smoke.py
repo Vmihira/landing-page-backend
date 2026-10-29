@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from voicenav import Agent
-from voicenav.demo import load_environment
+from voicenav.server import load_environment
 
 GOALS = (
     "Use the destination search and filters to find Design stays in Lisbon with Free cancellation, "

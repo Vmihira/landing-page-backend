@@ -1,72 +1,90 @@
 # VoiceNav 🎙️
 
-**Speak a task. VoiceNav opens the right website and does it in a real Chrome browser.**
+**Say what you want. VoiceNav builds the website, or gets the task done on the web, while you watch every step.**
 
-> "Find Samsung Galaxy S25, the least price one with 256 GB storage, on Amazon."
+![VoiceNav home](docs/screenshots/home.jpg)
 
-VoiceNav hears that, opens amazon.in, searches, scrolls the results, and opens the cheapest matching listing. In testing, that run took about 15 seconds.
+| | |
+| --- | --- |
+| **Studio** | Describe a website. VoiceNav asks a few questions, plans the sections, offers four themes, and builds it live. Then you change it by talking: “make the hero darker”, “add a FAQ”, “go to pricing”. |
+| **Navigator** | Describe a task (“find the cheapest Galaxy S25 with 256 GB on Amazon”). VoiceNav opens the right site and works through it on a big live screen, showing each next move before it makes it. |
+| **Projects** | Every site is saved with every version: open, compare, download, or hand it to Navigator to test. |
 
-VoiceNav is built on [Jev Ultrafast](https://github.com/browser-use/jev-ultrafast) by Browser Use × TypeSafe. It adds voice input, uses OpenRouter for every model, and can start on any website.
+Everything works by voice. Hold <kbd>Space</kbd> anywhere and talk, or type if you prefer.
+
+---
+
+## Highlights
+
+**Studio: a website builder that talks back**
+
+- **Questions, then a plan.** Tappable answer chips (recommended answers preselected), then a plan you can edit: toggle, reorder, add, or drop sections.
+- **Four real themes.** Each theme card is drawn in its actual colors and fonts. The canvas shows a live blueprint of your page in the chosen theme before anything is built.
+- **A live build.** Sections stream into the preview one by one while the plan ticks off with per-section timings. The *Code* tab types itself out, and tokens per second are shown.
+- **Quality checks on every version.** Complete document, every planned section present, links that resolve, alt text, named buttons, responsive viewport, no placeholder copy, page weight.
+- **Surgical edits.** “Make the hero punchier” rewrites only the hero (about 10 s) while it shimmers in the preview. Global changes rewrite the page. Every change is a new version you can roll back.
+- **Voice navigation in the preview.** “Take me to pricing”, “click book a table”, “switch to mobile view”. Every site also gets a **Navigate by voice** button, and downloaded sites keep working voice navigation through the browser's own speech recognition.
+
+![Studio](docs/screenshots/studio.jpg)
+
+**Navigator: an agent you can watch**
+
+- **The next action, before it runs.** Its target is boxed on the big live screen, the cursor glides to it, and a caption reads “TYPE · Search Wikipedia”.
+- **Never looks stuck.** The *Now* card always shows what's happening, with a timer: choosing the site, reading the page, Jev deciding, writing text, executing, waiting for the page.
+- **A plan that ticks off.** It's generated from your goal, and Jev marks progress in the same request that picks the action.
+- **Transparent decisions.** Jev's probability bars for every operation and the top target candidates.
+- **Fast, Watch, or Step.** Step waits for you (“go ahead”) before each action. Pause and Stop work at any time, by click or by voice.
+
+![Navigator](docs/screenshots/navigator.jpg)
 
 ---
 
 ## How it works
 
 ```text
- 🎙️ you speak ──► Fish Audio speech-to-text ──► task text
-                                                   │
-                         start website (amazon.in, wikipedia.org, a URL you said)
-                                                   │
-       ┌───────────────────────────────────────────▼──────────────────────────┐
-       │  page ──► numbered list of buttons, links, fields on screen           │
-       │       ──► Jev picks ONE operation + ONE element  (CLICK [7], …)       │
-       │       ──► Chrome executes it ──► look again ──► repeat until DONE     │
-       └───────────────────────────────────────────────────────────────────────┘
-                 TYPE_TEXT only: a small LLM writes the words to type
+ you speak ─► Fish Audio (speech-to-text) ─► text ─► Jev routes it: what you want + which thing you mean
+                                                         │
+          ┌───────────────────────────────┬──────────────┴───────────────┬──────────────────────────────┐
+          ▼                               ▼                              ▼                              ▼
+   Build a website                 Edit / navigate a site          Do a web task               App commands
+   Claude Haiku 5.5:               surgical section edits;         Navigator: page → numbered   pause, step, device,
+   questions → plan → themes →     preview targets clicked or      elements → Jev picks ONE     download, open…
+   streamed HTML + checks          scrolled by the bridge          operation + ONE element
 ```
 
-| Part | What it does | Service |
+| Piece | Job | Provider |
 | --- | --- | --- |
-| Speech-to-text | Turns your recording into the task text | [Fish Audio](https://fish.audio) (`transcribe-1-pro`) |
-| Jev | Chooses each next action from the elements on screen | [OpenRouter](https://openrouter.ai/typesafe/jev-1.14) (`typesafe/jev-1.14`) |
-| Text helper | Writes the text to type, and picks the start website | OpenRouter (`inception/mercury-2.5`) |
-| Browser Harness | Drives your Chrome over the DevTools protocol | Runs locally |
+| **Jev** | Picks every browser action, routes every voice command, picks preview targets, tracks plan progress | TypeSafe, via OpenRouter (`typesafe/jev-1.14`) |
+| **Claude Haiku 5.5** | Questions, plans, themes, the website itself, and edits | Anthropic, via OpenRouter |
+| **Mercury 2.5** | Writes text the agent types, picks the start site, writes the task plan | Inception, via OpenRouter |
+| **Fish Audio** | Speech-to-text, and optional spoken replies | Fish Audio |
+| **Browser Harness** | Drives Chrome over the DevTools protocol | Runs locally |
 
-Jev never writes code, selectors or coordinates. It can only pick from elements that are really on the page, and every click is re-checked before it happens.
+Jev never writes code, selectors, or coordinates. It only chooses from options that really exist: elements on the page, themes on screen, sections in the preview. Every click is re-checked against the live page first.
 
 ---
 
 ## What you need
 
-- **Windows, macOS or Linux**
-- **Python 3.12+** and **[uv](https://docs.astral.sh/uv/)** (Python package manager)
-- **Google Chrome**
-- **Git**
-- An **OpenRouter API key** with a little credit: <https://openrouter.ai/keys>
+- **Windows, macOS or Linux**, with **Google Chrome**, **Git**, and a **microphone**
+- **Python 3.12+** and **[uv](https://docs.astral.sh/uv/)**
+- An **OpenRouter API key** with a few dollars of credit: <https://openrouter.ai/keys>. A full website costs about $0.01, an edit about $0.002, and a Jev decision a fraction of a cent.
 - A **Fish Audio API key**: <https://fish.audio> → *API Keys*
-- A **microphone**
-
----
 
 ## Setup
 
-### 1. Install uv
-
-Windows (PowerShell):
+**1. Install uv** (once)
 
 ```powershell
+# Windows (PowerShell)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
-
-macOS / Linux:
-
 ```bash
+# macOS / Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Close and reopen the terminal afterwards so `uv` is on your PATH.
-
-### 2. Get the code
+**2. Get the code**
 
 ```bash
 git clone https://github.com/kskkoushik/voicenav.git
@@ -74,105 +92,78 @@ cd voicenav
 uv sync
 ```
 
-### 3. Add your API keys
-
-Copy the example settings file:
-
-```bash
-copy .env.example .env     # Windows
-cp .env.example .env       # macOS / Linux
-```
-
-Open `.env` and paste your two keys:
+**3. Add your keys.** Copy `.env.example` to `.env` (`copy` on Windows, `cp` elsewhere) and fill in:
 
 ```ini
 OPENROUTER_API_KEY=sk-or-...
 FISH_AUDIO_API_KEY=...
 ```
 
-`.env` is git-ignored, so the keys stay on your computer. They are used only by the local server and never sent to the web page.
+`.env` is git-ignored, and keys never reach the browser page.
 
-### 4. Let VoiceNav control Chrome
+**4. Let VoiceNav drive Chrome** (only needed for Navigator). Pick one:
 
-Pick **one** option.
+- **Your normal Chrome:** open `chrome://inspect/#remote-debugging`, tick **Allow remote debugging for this browser instance**, and click **Allow** when Chrome asks on the first run.
+- **A separate Chrome, with no logins:**
+  ```powershell
+  & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9333 --user-data-dir="$env:LOCALAPPDATA\voicenav-chrome" --no-first-run
+  $env:BU_CDP_URL = "http://127.0.0.1:9333"
+  ```
+  On macOS: `open -na "Google Chrome" --args --remote-debugging-port=9333 --user-data-dir="$HOME/.voicenav-chrome"`, then `export BU_CDP_URL=http://127.0.0.1:9333`.
 
-**Option A: your normal Chrome** (uses your logins and cookies)
-
-1. Open Chrome and go to `chrome://inspect/#remote-debugging`.
-2. Tick **Allow remote debugging for this browser instance**.
-3. On the first run, Chrome asks **"Allow remote debugging?"**. Click **Allow**.
-
-**Option B: a separate Chrome just for the agent** (a clean profile with no logins; nothing to tick)
-
-Windows (PowerShell):
-
-```powershell
-& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9333 --user-data-dir="$env:LOCALAPPDATA\voicenav-chrome" --no-first-run
-$env:BU_CDP_URL = "http://127.0.0.1:9333"
-```
-
-macOS:
-
-```bash
-open -na "Google Chrome" --args --remote-debugging-port=9333 --user-data-dir="$HOME/.voicenav-chrome" --no-first-run
-export BU_CDP_URL=http://127.0.0.1:9333
-```
-
-Keep that Chrome window open. Set `BU_CDP_URL` in the same terminal you use for the next step.
-
-### 5. Start VoiceNav
+**5. Start it**
 
 ```bash
 uv run voicenav
 ```
 
-When the terminal prints `VoiceNav: http://127.0.0.1:8766`, open **<http://127.0.0.1:8766>** in your browser.
+Open **<http://127.0.0.1:8766>** and allow the microphone when asked.
 
 ---
 
-## Using it
+## Talking to VoiceNav
 
-### By voice
-
-1. Make sure the dropdown says **Any website · from your task**.
-2. Click **Speak task**. The first time, allow the microphone.
-3. Say the task, then click **Stop & run**.
-4. VoiceNav transcribes your words into the task box, picks the website, opens a fresh browser window and runs until it is done.
-
-### By typing
-
-Type the task in the box, then click **Start demo** and **Run automatically**. To go one step at a time, use **Choose next**, then **Execute choice**.
-
-### Tips for good results
-
-- **Name the site or paste a URL:** "on Amazon", "on Wikipedia", or `https://…`. Otherwise VoiceNav picks the best-known site for the task.
-- **Regional sites follow your computer's region.** In India, "Amazon" means amazon.in. Say "amazon.com" to override.
-- **Say where to stop,** for example "Open its product page" or "Stop when results are visible".
-- **Add "Do not add to cart or buy"** to shopping tasks. The agent can click anything you could.
-- **Fix misheard names before re-running.** If speech-to-text gets a name wrong, correct it in the task box and click **Start demo**.
-- **Pause stops the run** after the current step.
-
-### Other scenarios in the dropdown
-
-| Scenario | Starts on |
+| How | What happens |
 | --- | --- |
-| Any website · from your task | The site your task names, a URL in the task, or the best match |
-| Google Flights · real web | google.com/travel/flights |
-| Travel planner · fixture | A local practice page (no internet needed) |
-| Reading room · fixture | A local practice page (no internet needed) |
+| Hold <kbd>Space</kbd> (outside a text box) | Talk while held, release to send |
+| Click a 🎙 button or the big orb | Listens and sends automatically when you pause |
+| <kbd>Esc</kbd> | Cancel listening |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>K</kbd> | Command palette |
 
-### From the command line
+Everything you say or type goes through **Jev's router**. A small note shows what it understood, e.g. `“take me to pricing” → Go to · Pricing · 0.9 s`. When you speak, the assistant can answer out loud; turn that off with the speaker icon or in Settings.
 
-```bash
-# Type the task
-uv run --env-file .env python examples/run.py --goal "Find the Wikipedia article about Gödel's incompleteness theorems"
+**Things you can say**
 
-# Use a recorded voice file (wav, mp3, webm, ogg, m4a)
-uv run --env-file .env python examples/run.py --audio my-task.wav
+| Where | Examples |
+| --- | --- |
+| Anywhere | “Build a landing page for my bakery in Bengaluru” · “Find flights to Delhi next Friday on Google Flights” · “Open my projects” |
+| Studio · questions | “It's for busy professionals, keep it minimal” · “Just decide for me” |
+| Studio · plan | “Use the dark theme” · “The second one” · “Drop the FAQ and add a gallery” · “Build it” |
+| Studio · finished site | “Make the hero more dramatic” · “Add a testimonials carousel” · “Go to pricing” · “Click book a trial class” · “Scroll down” · “Show it on mobile” · “Show me the code” · “Download it” · “Test it in Navigator” |
+| Navigator | “Pause” · “Resume” · “Stop” · “Go ahead” (in Step mode) |
 
-# Choose the start page yourself
-uv run --env-file .env python examples/run.py --url https://www.amazon.in --goal "Find a USB-C cable under ₹300"
-```
+---
+
+## Studio, step by step
+
+1. **Describe the site.** Name the business, who it's for, and the vibe. Or start from an example.
+2. **Answer the questions** by tapping chips, typing, or speaking, or choose **Decide for me**.
+3. **Shape the plan.** Pick one of four themes and toggle, drag, add, or remove sections. The canvas shows the blueprint in your theme.
+4. **Build.** It takes about 50 s. Watch sections arrive, or open **Code**.
+5. **Refine.** Ask for changes in plain words. Small changes take about 10 s, and each one makes a new version (the 🕘 menu rolls back).
+6. **Use it.** Open it in a new tab, **download** a single HTML file (voice navigation included), or **Test in Navigator** to let the agent use it like a visitor.
+
+![Voice navigation in the preview](docs/screenshots/voice-navigation.jpg)
+
+![A surgical edit in progress](docs/screenshots/surgical-edit.jpg)
+
+## Navigator, step by step
+
+1. Say or type the task. Naming the site or pasting a URL helps (“…on Amazon”). Regional sites follow your computer's region, so “Amazon” in India means amazon.in.
+2. Watch the plan, the **Now** card, and the big screen. In **Watch** mode each action stays visible for 0.7 s before it runs. **Fast** skips that pause, and **Step** waits for you.
+3. When it finishes, check the final page yourself. DONE is the agent's judgement, not proof.
+
+For shopping tasks, add “do not add to cart or buy”: the agent can click anything you could.
 
 ---
 
@@ -180,81 +171,61 @@ uv run --env-file .env python examples/run.py --url https://www.amazon.in --goal
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | *required* | Jev and the text helper |
-| `FISH_AUDIO_API_KEY` | *required for voice* | Speech-to-text |
-| `TYPESAFE_MODEL` | `jev-latest` | Jev version (`jev-latest` currently resolves to `typesafe/jev-1.14`) |
-| `TEXT_MODEL` | `inception/mercury-2.5` | Any OpenRouter chat model for typing text |
-| `TEXT_MODEL_REASONING` | `none` | `none` turns off the text model's reasoning, which is faster |
-| `FISH_AUDIO_LANGUAGE` | `en` | Language hint for speech-to-text; leave empty to auto-detect |
-| `TYPESAFE_DEMO_PORT` | `8766` | Port of the local web page (set it in the terminal, not `.env`) |
-| `BU_CDP_URL` | *(unset)* | Use a separate Chrome (Option B; set it in the terminal) |
-
----
+| `OPENROUTER_API_KEY` | *required* | Jev, Studio, and the text helper |
+| `FISH_AUDIO_API_KEY` | *required for voice* | Speech-to-text and spoken replies |
+| `BUILDER_MODEL` | `anthropic/claude-haiku-5.5` | Model that writes and edits websites |
+| `BUILDER_REASONING` | `none` | `none` streams code within about 2 s; `low`/`medium`/`high` think first (slower) |
+| `TYPESAFE_MODEL` | `jev-latest` | Jev version |
+| `TEXT_MODEL` / `TEXT_MODEL_REASONING` | `inception/mercury-2.5` / `none` | Text helper for typing and planning tasks |
+| `FISH_AUDIO_LANGUAGE` | `en` | Language hint; leave empty to auto-detect |
+| `FISH_AUDIO_VOICE` | *(Fish default)* | Voice model id for spoken replies |
+| `VOICENAV_PROJECTS` | `./projects` | Where sites are saved (git-ignored) |
+| `TYPESAFE_DEMO_PORT` | `8766` | Port; set it in the terminal, not in `.env` |
+| `BU_CDP_URL` | *(unset)* | Use a separate Chrome; set it in the terminal |
 
 ## Troubleshooting
 
 | You see | Fix |
 | --- | --- |
-| `daemon default didn't come up` | Chrome isn't allowing remote control. Do [step 4](#4-let-voicenav-control-chrome), then press **Start demo** again. |
-| The page loads but the buttons do nothing | An old server may still be running. Stop every `uv run voicenav` window (Ctrl+C) and start one again. |
-| `Address already in use` / wrong behaviour on port 8766 | Another copy is running. Close it, or use another port: `$env:TYPESAFE_DEMO_PORT = "8767"; uv run voicenav` (PowerShell) or `TYPESAFE_DEMO_PORT=8767 uv run voicenav` (macOS/Linux). |
-| **Speak task** does nothing / "Microphone access was blocked" | Click the icon to the left of the address bar, allow **Microphone** for `127.0.0.1`, and reload. |
-| `Text helper returned no valid field value` | A one-off bad reply from the text model. Click **Run automatically** again. |
-| `Dropdown execution was not confirmed` | The site draws its own menu over a real dropdown (for example Amazon's *Sort by*). Re-run, or rephrase the task without sorting. |
-| `Jev needs OPENROUTER_API_KEY` / `Voice input needs FISH_AUDIO_API_KEY` | Check `.env` is in the project folder and the key names match exactly. |
-| Run stops with **blocked** | Jev found no safe next step: a login wall, a CAPTCHA, or a name that doesn't exist on the page. Check the screenshot, adjust the task, and run again. |
-
----
+| `daemon default didn't come up` (Navigator) | Chrome isn't allowing remote control. Do setup step 4, then try again. |
+| The mic does nothing / “Microphone unavailable” | Click the icon left of the address bar, allow **Microphone** for `127.0.0.1`, and reload. |
+| “Couldn't understand that” | Routing failed (often a network blip). Say it again. VoiceNav never guesses a costly action such as an edit. |
+| A build stops with an OpenRouter error | Check your credits at openrouter.ai. Your plan is kept, so click **Build website** again. |
+| Old behaviour after updating | Stop every `uv run voicenav` (Ctrl+C) and start one again. |
+| `Address already in use` | Another copy is running. Close it, or set `TYPESAFE_DEMO_PORT=8767` in the terminal. |
+| Navigator ends “blocked” | It found no safe next step: a login wall, a CAPTCHA, or something not on the page. Rephrase, or name the site. |
 
 ## Limits and safety
 
-- **It acts in a real browser.** With Option A it uses your logged-in accounts. Watch the run, and tell it what it must not do.
-- **Not supported yet:** CAPTCHAs, iframes, shadow DOM, canvas apps, file uploads, and some custom dropdowns. These usually end in **blocked**.
-- **`DONE` is the agent's own judgement.** Always look at the final page yourself.
-- **Costs:** Jev bills input tokens only, and each decision costs a fraction of a cent. Speech-to-text is billed by Fish Audio per audio length. OpenRouter shows the exact cost of every request.
+- **A real browser.** Navigator acts with the logins of whichever Chrome you connect. Watch it, use Step mode for anything sensitive, and say what it must not do.
+- **Not supported yet:** CAPTCHAs, iframes, shadow DOM, canvas apps, and file uploads. Some custom dropdowns (for example Amazon's *Sort by*) are refused safely.
+- **Generated sites are sandboxed.** They open on a separate origin (`localhost`) from the app (`127.0.0.1`), so their code can't reach VoiceNav or your keys.
+- **Speech can mishear names.** The transcript stays visible, so correct it and send again.
 
 ---
 
 ## Project layout
 
-| File | Job |
+| Path | Job |
 | --- | --- |
-| [`voicenav/agent.py`](voicenav/agent.py) | The agent loop: observe → choose → act → observe |
-| [`voicenav/model.py`](voicenav/model.py) | Jev requests, the text helper, and start-site choice (all via OpenRouter) |
-| [`voicenav/voice.py`](voicenav/voice.py) | Fish Audio speech-to-text |
-| [`voicenav/browser.py`](voicenav/browser.py) | Chrome connection, safe execution, following newly opened tabs |
-| [`voicenav/snapshot.js`](voicenav/snapshot.js) | Reads the visible page and its controls in one call |
-| [`voicenav/questions.py`](voicenav/questions.py) | Instructions for Jev and the text helper |
-| [`voicenav/demo.py`](voicenav/demo.py) | Local web server (port 8766) |
-| [`voicenav/static/`](voicenav/static/) | The web page: task box, **Speak task**, live view |
-| [`examples/run.py`](examples/run.py) | Command-line runner (`--goal`, `--audio`, `--url`) |
+| [`voicenav/server.py`](voicenav/server.py) | Local server: API, event streams, sandboxed sites (`uv run voicenav`) |
+| [`voicenav/studio.py`](voicenav/studio.py) | Studio pipeline: questions, plan + themes, streamed build, quality checks, surgical edits |
+| [`voicenav/router.py`](voicenav/router.py) | Jev voice and command routing: operation + target in one request |
+| [`voicenav/navigator.py`](voicenav/navigator.py) | Navigator sessions: phases, live frames, pause/step/stop |
+| [`voicenav/agent.py`](voicenav/agent.py), [`model.py`](voicenav/model.py), [`browser.py`](voicenav/browser.py), [`snapshot.js`](voicenav/snapshot.js) | The browser agent: observe → Jev chooses → act |
+| [`voicenav/voice.py`](voicenav/voice.py), [`llm.py`](voicenav/llm.py), [`events.py`](voicenav/events.py), [`projects.py`](voicenav/projects.py) | Fish Audio, OpenRouter streaming, replayable event streams, project storage |
+| [`voicenav/static/`](voicenav/static/) | The app (Preact + htm, no build step): `views/`, `lib/` (voice hub, API, icons), `preview-bridge.js`, `voice-nav.js` |
+| [`examples/run.py`](examples/run.py) | Command-line Navigator (`--goal`, `--audio`, `--url`) |
 
 ## Development
 
 ```bash
 uv run ruff check .
-uv run pytest                 # offline; no paid API calls
-node --check voicenav/static/app.js
+uv run pytest            # offline: no paid API calls
+node --check voicenav/static/preview-bridge.js
 uv build
 ```
 
-## What VoiceNav changes from Jev Ultrafast
-
-- **Voice input** through Fish Audio, in the web page and with `--audio` on the command line.
-- **One OpenRouter key** for Jev and the text helper, instead of a TypeSafe key plus a separate provider.
-- **Any website:** the start site comes from the task.
-- **New tabs are followed.** Links that open in a new tab, such as Amazon products, no longer stall the run.
-- **Prices and other `aria-hidden` text that is visible on screen** now reach the model.
-- **Fixes:**
-  - Windows: files are read as UTF-8, and the agent uses its own window so screenshots work.
-  - A slow first page load is waited for instead of observed as blank.
-  - Text-model replies that end with stray Markdown fences are accepted.
-
 ## Credits and license
 
-- Agent loop and inspector: [browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast) (MIT)
-- Jev decision model: [TypeSafe](https://docs.typesafe.ai)
-- Browser control: [Browser Harness](https://github.com/browser-use/browser-harness)
-- Speech-to-text: [Fish Audio](https://docs.fish.audio/features/speech-to-text)
-
-Released under the MIT License. See [LICENSE](LICENSE).
+Built on [browser-use/jev-ultrafast](https://github.com/browser-use/jev-ultrafast) (MIT), with [TypeSafe's Jev](https://docs.typesafe.ai) for decisions, [Browser Harness](https://github.com/browser-use/browser-harness) for Chrome, [Anthropic's Claude](https://www.anthropic.com) through [OpenRouter](https://openrouter.ai) for websites, [Fish Audio](https://fish.audio) for voice, and [Preact](https://preactjs.com) + [htm](https://github.com/developit/htm) for the interface. Released under the MIT License; see [LICENSE](LICENSE).

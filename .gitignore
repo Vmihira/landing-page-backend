@@ -8,3 +8,7 @@ artifacts/
 *.egg-info/
 
 dist/
+
+# VoiceNav Studio projects (generated sites) and local archives
+projects/
+/*.zip

@@ -11,7 +11,8 @@ WAIT only when the needed control is absent/disabled, or submitted results are s
 If Search/Submit is visible and the required fields are ready, CLICK it immediately.
 Recent WAIT actions are not evidence of loading. Prefer a useful visible control over WAIT.
 DONE requires visible evidence that ALL requirements are satisfied. If asked to open a result,
-a matching link is not enough. BLOCKED means no supported operation can make progress."""
+a matching link is not enough. If the needed control is not visible yet and the page continues below,
+SCROLL_DOWN. BLOCKED means no supported operation, scrolling included, can make progress."""
 
 TARGET = """Choose the best observed target if the next operation is the one specified in this question.
 Use the user's entire goal, field values, nearby text, and recent actions. This question chooses only
@@ -27,7 +28,15 @@ START_PAGE = """Return a JSON object with exactly one key, url: the https addres
 should begin the goal. Use the website the goal names. Prefer that site's version for user_region unless
 the goal names another country or domain. If no website is named, choose the best-known public site for
 the task, or https://www.google.com.
-Return a homepage or a public start page for the task, never a search-results URL or query string.
+Return the site's homepage or a well-known section page (like a flights page), never a deep link to a
+specific article, product, or item, and never a search-results URL or query string: the agent does the finding.
 No commentary. Never invent personal information. Return {"url": "https://..."}."""
+
+PLAN_STEP = """Which step of this plan is the browser agent working on right now? Judge from the current page,
+its field values, and recent actions. Completed steps are behind it; choose the first step not yet done."""
+
+TASK_PLAN = """Return a JSON object with exactly one key, steps: 3 to 6 short steps (each under 9 words) a person
+would follow in a web browser to complete the goal, starting from the given start page. Plain imperative
+phrases, no numbering, no URLs to invent, no personal information. Return {"steps": ["...", "..."]}."""
 
 MAX_STEPS = 60

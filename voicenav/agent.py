@@ -10,11 +10,18 @@ from .questions import MAX_STEPS
 
 
 class Agent:
-    def __init__(self, url, goals, *, record_dir=None, screenshots=False):
+    # Defaults for instances built without __init__ (tests): no progress callback, no display plan.
+    emit = staticmethod(lambda _kind, _data: None)
+    task_plan = ()
+
+    def __init__(self, url, goals, *, record_dir=None, screenshots=False, on_event=None):
         task = goals.strip() if isinstance(goals, str) else "\n".join(goals).strip()
         if not task:
             raise ValueError("Supply a task")
         plan = [task]
+        # Progress callback for live displays: emit(kind, data). It observes; it never changes a decision.
+        self.emit = on_event or (lambda _kind, _data: None)
+        self.task_plan = []
         self.pending_text = None
         self.browser = Browser(url)
         self.record_dir = Path(record_dir) if record_dir else None
@@ -74,7 +81,7 @@ class Agent:
                 raise ValueError("This run has stopped. Start a fresh demo.")
             if len(state["decisions"]) >= MAX_STEPS * 2:
                 raise ValueError("Reached the demo's model-call budget")
-            state["decision"] = choose(state["page"], state["goal"], state["history"])
+            state["decision"] = choose(state["page"], state["goal"], state["history"], self.task_plan)
             state["decisions"].append(
                 {
                     **state["decision"],
@@ -110,10 +117,13 @@ class Agent:
                 if self.pending_text and self.pending_text[0] == context:
                     _, text, helper = self.pending_text
                 else:
+                    self.emit("writing", {"field": action["label"]})
                     text, helper = field_text(context)
                     self.pending_text = (context, text, helper)
                     state["text_calls"].append({**helper, "field": action["label"], "value": text})
+                self.emit("text", {"field": action["label"], "text": text, "latency_ms": helper["latency_ms"]})
             # Browser.act checks freshness immediately before input, including after text generation.
+            self.emit("executing", {"action": action["label"], "kind": action["kind"], "text": text})
             state["browser"].act(action, page, text=text)
             self.pending_text = None
             state["elapsed_ms"] = round((time.perf_counter() - state["started_at"]) * 1000)
@@ -139,6 +149,7 @@ class Agent:
                     "elapsed_ms": state["elapsed_ms"],
                 }
             )
+            self.emit("settling", {"action": action["label"]})
             state["page"] = state["browser"].observe(screenshot=self.screenshots)
             state["elapsed_ms"] = round((time.perf_counter() - state["started_at"]) * 1000)
             state["history"][-1].update(

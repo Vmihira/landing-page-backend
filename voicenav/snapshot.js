@@ -92,6 +92,18 @@
       words.push(value); length+=value.length;
     }
   }
+  // Repeated labels ("Start free trial" on three plan cards, "Add to cart" per product) are ambiguous, so add
+  // the heading of the nearest enclosing card. The hint is page text; the target is still the observed node.
+  const counts={};
+  for (const a of actions) if (a.kind!=='select') counts[a.label]=(counts[a.label]||0)+1;
+  for (const a of actions) {
+    if (a.kind==='select' || counts[a.label]<2) continue;
+    const e=cache.nodes.get(a.node);
+    for (let p=e.parentElement, depth=0; p && depth<6 && !/^(BODY|MAIN|HTML)$/.test(p.tagName); p=p.parentElement, depth++) {
+      const h=[...p.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')].find(x=>!x.contains(e) && visible(x));
+      if (h) { const t=(h.innerText||'').replace(/\s+/g,' ').trim().slice(0,60); if (t) a.label+=' · in "'+t+'"'; break; }
+    }
+  }
   const text=words.join('\n').slice(0,6000), height=document.documentElement.scrollHeight;
   const page_key=cache.pageKey(), guards={};
   for (const a of actions) if (!(a.node in guards)) guards[a.node]=cache.guard(cache.nodes.get(a.node));

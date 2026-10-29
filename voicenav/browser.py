@@ -13,6 +13,28 @@ from browser_harness.helpers import cdp
 READ_STATE = Path(__file__).with_name("snapshot.js").read_text(encoding="utf-8")
 MARKER = f"(() => {{ const state={READ_STATE}; return state?.marker ?? null; }})()"
 
+# After an action, wait (read-only, at most 0.7 s) while the page is still smooth-scrolling or content is still
+# fading in. Reveal-on-scroll sections are invisible (opacity 0) at first, so observing too early hides them.
+SETTLE = """(async () => {
+  const stop = performance.now() + 700;
+  const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+  const fading = () => document.getAnimations().filter(a => {
+    if (a.playState !== 'running') return false;
+    const end = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming().endTime : Infinity;
+    if (!Number.isFinite(end)) return false;
+    if (a.transitionProperty) return /^(opacity|all|transform|translate)$/.test(a.transitionProperty);
+    return (a.effect.getKeyframes ? a.effect.getKeyframes() : []).some(k => 'opacity' in k);
+  });
+  let y = scrollY, still = 0;
+  while (performance.now() < stop) {
+    await frame();
+    still = scrollY === y ? still + 1 : 0;
+    y = scrollY;
+    if (still >= 2 && !fading().length) return;
+  }
+})()"""
+
+
 class StalePage(ValueError):
     """A decision no longer refers to the observed page."""
 
@@ -102,6 +124,10 @@ class Browser:
             except RuntimeError:
                 pass
             self.follow_opened_page()
+            try:
+                self.call("Runtime.evaluate", expression=SETTLE, awaitPromise=True, returnByValue=True)
+            except RuntimeError:
+                pass
         for attempt in range(10):
             try:
                 return browser_operation(

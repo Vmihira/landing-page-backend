@@ -41,3 +41,28 @@ def transcribe(audio, mime="audio/webm"):
     if len(text) > MAX_GOAL_CHARS:
         raise ValueError("The spoken task is longer than 2,000 characters.")
     return text
+
+
+TTS_URL = "https://api.fish.audio/v1/tts"
+MAX_SPOKEN_CHARS = 400
+
+
+def speak(text):
+    """Short spoken replies (MP3) with Fish Audio text-to-speech."""
+    key = os.environ.get("FISH_AUDIO_API_KEY")
+    if not key:
+        raise ValueError("Voice replies need FISH_AUDIO_API_KEY.")
+    text = " ".join(str(text or "").split())[:MAX_SPOKEN_CHARS]
+    if not text:
+        raise ValueError("Nothing to say")
+    body = {"text": text, "format": "mp3", "latency": "balanced"}
+    voice = os.environ.get("FISH_AUDIO_VOICE")
+    if voice:
+        body["reference_id"] = voice
+    try:
+        response = httpx.post(TTS_URL, json=body, headers={"Authorization": f"Bearer {key}"}, timeout=30)
+    except httpx.HTTPError:
+        raise RuntimeError("Fish Audio connection failed.") from None
+    if response.is_error:
+        raise RuntimeError(f"Fish Audio returned HTTP {response.status_code}: {response.text[:160]}")
+    return response.content

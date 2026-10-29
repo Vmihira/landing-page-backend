@@ -5,24 +5,38 @@ import locale
 import math
 import os
 import re
+import threading
 import time
 from urllib.parse import urlsplit
 
 import httpx
 
-from .questions import NEXT_ACTION, START_PAGE, TARGET, TEXT_VALUE
+from .questions import NEXT_ACTION, PLAN_STEP, START_PAGE, TARGET, TASK_PLAN, TEXT_VALUE
 
-CLIENT = httpx.Client(http2=True, timeout=25)
+# One HTTP/2 client per thread: Studio, Navigator, and voice routing call models concurrently,
+# and a shared HTTP/2 connection is not safe across threads.
+_LOCAL = threading.local()
 # OpenRouter serves Jev through the same System One request/answer format as api.typesafe.ai.
 JEV_URL = "https://openrouter.ai/api/v1/systemone"
 TEXT_MODEL = "inception/mercury-2.5"
 
 
+def client():
+    if not hasattr(_LOCAL, "client"):
+        _LOCAL.client = httpx.Client(http2=True, timeout=25)
+    return _LOCAL.client
+
+
 def post_json(url, key, body):
     for attempt in range(3):
         try:
-            response = CLIENT.post(url, json=body, headers={"Authorization": f"Bearer {key}"})
+            response = client().post(url, json=body, headers={"Authorization": f"Bearer {key}"})
         except httpx.HTTPError:
+            # A model call changes nothing in the browser, so a dropped connection is safe to retry.
+            if attempt < 2:
+                _LOCAL.__dict__.pop("client", None)
+                time.sleep(0.4 * 2**attempt)
+                continue
             raise RuntimeError("Model connection failed; no action executed.") from None
         if response.status_code in {429, 529, 503} and attempt < 2:
             time.sleep(0.5 * 2**attempt)
@@ -84,7 +98,7 @@ def action_space(actions):
     return elements, targets, controls
 
 
-def choose(state, goal, history):
+def choose(state, goal, history, plan=None):
     elements, targets, controls = action_space(state["actions"])
     labels = {
         "CLICK": "Click an element, button, menu option, autocomplete suggestion, or calendar day.",
@@ -110,6 +124,11 @@ def choose(state, goal, history):
             },
             "instructions": {"goal": goal, "operation": operation, "rules": [NEXT_ACTION, TARGET]},
         }
+    steps = {str(i + 1): step for i, step in enumerate(plan or [])}
+    if steps:
+        # Progress display only. The plan never enters the operation or target questions.
+        instructions = {"goal": goal, "rules": PLAN_STEP}
+        questions["plan_step"] = {"type": "choice", "criteria": steps, "instructions": instructions}
     body = {
         "model": os.environ.get("TYPESAFE_MODEL", "jev-latest"),
         "state": {
@@ -140,10 +159,17 @@ def choose(state, goal, history):
     else:
         choice = controls[operation]["id"] if operation in controls else operation
         probabilities[choice] = operation_answer["probabilities"][operation]
+    plan_step = None
+    if steps:
+        try:
+            plan_step = int(validate_choice(result["answers"].get("plan_step", {}), steps)["choice"])
+        except ValueError:
+            pass  # A malformed progress head never blocks the action.
     return {
         "choice": choice,
         "operation": operation,
         "target": target,
+        "plan_step": plan_step,
         "confidence": operation_answer["confidence"],
         "probabilities": probabilities,
         "operation_probabilities": operation_answer["probabilities"],
@@ -187,8 +213,26 @@ def start_page(goal):
     return url, helper
 
 
+def task_plan(goal, url):
+    """A short human-readable plan for the Navigator display. Empty when the helper gives no usable list."""
+    output, _ = helper_json(TASK_PLAN, {"goal": goal, "start_page": url})
+    steps = output.get("steps") if output else None
+    if not isinstance(steps, list):
+        return []
+    return [" ".join(s.split())[:90] for s in steps if isinstance(s, str) and s.strip()][:6]
+
+
 def helper_value(system, context, field):
     """One JSON request to the small helper model. The reply must be exactly {field: a non-empty string}."""
+    output, meta = helper_json(system, context)
+    value = output.get(field) if output else None
+    if set(output or {}) != {field} or not isinstance(value, str) or not value.strip() or len(value) > 2000:
+        value = None
+    return value, meta
+
+
+def helper_json(system, context):
+    """One JSON request to the small helper model; returns the first JSON object in its reply, or None."""
     key = os.environ.get("TEXT_MODEL_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
     if not key:
         raise ValueError("The text helper needs OPENROUTER_API_KEY; no text is hardcoded or guessed by the executor.")
@@ -220,12 +264,9 @@ def helper_value(system, context, field):
         # Some helpers wrap or trail the object with a Markdown fence. Parse the first JSON object only.
         start = content.find("{")
         output = json.JSONDecoder().raw_decode(content, start)[0] if start >= 0 else None
-        value = output[field]
-        if set(output) != {field} or not isinstance(value, str) or not value.strip() or len(value) > 2000:
-            raise ValueError()
     except (ValueError, KeyError, TypeError, IndexError):
-        value = None
-    return value, {
+        output = None
+    return output if isinstance(output, dict) else None, {
         "model": model,
         "latency_ms": round((time.perf_counter() - started) * 1000),
         "usage": result.get("usage", {}),
