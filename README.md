@@ -119,6 +119,19 @@ uv run voicenav
 
 Open **<http://127.0.0.1:8766>** and allow the microphone when asked.
 
+### Deploy on Modal
+
+[`modal_app.py`](modal_app.py) runs VoiceNav and a headless Chromium (for Navigator) in one container, with projects on a Modal Volume.
+
+```bash
+modal secret create voicenav VOICENAV_PUBLIC_URL=https://<workspace>--voicenav.modal.run \
+  VOICENAV_PASSWORD=<pick one> VOICENAV_TOKEN=<any long random string> \
+  OPENROUTER_API_KEY=sk-or-... FISH_AUDIO_API_KEY=...
+modal deploy modal_app.py
+```
+
+Open the `VOICENAV_PUBLIC_URL` address and sign in with any user name and the password. Generated sites under `/sites/` stay public, so they can be shared. Hosted, they always run sandboxed, so their own *Navigate by voice* button needs the downloaded file. Navigator browses from a datacenter, where some sites show CAPTCHAs.
+
 ---
 
 ## Talking to VoiceNav
@@ -182,6 +195,10 @@ For shopping tasks, add “do not add to cart or buy”: the agent can click any
 | `VOICENAV_PROJECTS` | `./projects` | Where sites are saved (git-ignored) |
 | `TYPESAFE_DEMO_PORT` | `8766` | Port; set it in the terminal, not in `.env` |
 | `BU_CDP_URL` | *(unset)* | Use a separate Chrome; set it in the terminal |
+| `VOICENAV_PUBLIC_URL` | *(unset)* | Hosted mode: the public address; the server then listens on `$PORT` |
+| `VOICENAV_PASSWORD` | *(unset)* | Asks for this password (any user name) everywhere except `/sites/` |
+| `VOICENAV_TOKEN` | *(random per run)* | Fixed API token, so open pages survive a hosted restart |
+| `VOICENAV_NAVIGATOR` | `on` | `off` skips the hosted Chromium (Studio only) |
 
 ## Troubleshooting
 
@@ -216,6 +233,7 @@ For shopping tasks, add “do not add to cart or buy”: the agent can click any
 | [`voicenav/voice.py`](voicenav/voice.py), [`llm.py`](voicenav/llm.py), [`events.py`](voicenav/events.py), [`projects.py`](voicenav/projects.py) | Fish Audio, OpenRouter streaming, replayable event streams, project storage |
 | [`voicenav/static/`](voicenav/static/) | The app (Preact + htm, no build step): `views/`, `lib/` (voice hub, API, icons), `preview-bridge.js`, `voice-nav.js` |
 | [`examples/run.py`](examples/run.py) | Command-line Navigator (`--goal`, `--audio`, `--url`) |
+| [`modal_app.py`](modal_app.py), [`scripts/start.sh`](scripts/start.sh) | Modal deployment: container image, Chromium, and the server |
 
 ## Development
 

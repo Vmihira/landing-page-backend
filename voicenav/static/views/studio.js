@@ -561,7 +561,7 @@ export function Studio({ path }) {
     : stage === "asking" ? "Answer in your own words…"
       : stage === "planned" ? "“Build it”, or ask for changes…"
         : busy ? "Working… say “stop” to cancel" : "Ask for a change, or “go to pricing”";
-  const address = project?.current ? `localhost:${location.port}/sites/${project.id}/v${site?.version || project.current}${section?.id ? `#${section.id}` : ""}`
+  const address = project?.current ? `${sitesOrigin.replace(/^https?:\/\//, "")}/sites/${project.id}/v${site?.version || project.current}${section?.id ? `#${section.id}` : ""}`
     : project ? `${project.name} · ${stage === "planned" ? "blueprint" : "draft"}` : "new-site";
 
   let canvas;

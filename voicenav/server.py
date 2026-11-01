@@ -1,10 +1,12 @@
 """VoiceNav local server: Home, Studio (website builder), Navigator (browser agent), Projects.
 
-Loopback only. Every API call carries a per-run token. Generated sites are served with a sandbox CSP so their
-code cannot reach the API. Long jobs stream newline-delimited JSON events.
+Loopback only, unless hosted (VOICENAV_PUBLIC_URL or Render's RENDER_EXTERNAL_URL): then it listens on $PORT and
+VOICENAV_PASSWORD guards everything except /sites/. Every API call carries a per-run token. Generated sites are
+served with a sandbox CSP so their code cannot reach the API. Long jobs stream newline-delimited JSON events.
 """
 
 import atexit
+import base64
 import json
 import mimetypes
 import os
@@ -25,12 +27,17 @@ from .voice import MAX_AUDIO_BYTES, speak, transcribe
 
 ROOT = Path(__file__).parent
 STATIC = ROOT / "static"
-PORT = int(os.environ.get("TYPESAFE_DEMO_PORT", "8766"))
-ORIGIN = f"http://127.0.0.1:{PORT}"
+PUBLIC = (os.environ.get("VOICENAV_PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").rstrip("/")
+PORT = int((PUBLIC and os.environ.get("PORT")) or os.environ.get("TYPESAFE_DEMO_PORT", "8766"))
+ORIGIN = PUBLIC or f"http://127.0.0.1:{PORT}"
 # Generated sites open on a different origin (localhost vs 127.0.0.1): they run as normal pages, microphone
-# included, yet cannot read the app page, its token, or the API.
-SITES = f"http://localhost:{PORT}"
-TOKEN = secrets.token_urlsafe(32)
+# included, yet cannot read the app page, its token, or the API. Hosted, there is one origin, so sites are
+# always sandboxed instead.
+SITES = PUBLIC or f"http://localhost:{PORT}"
+APP_HOST = urlparse(ORIGIN).netloc
+SITES_HOST = urlparse(SITES).netloc
+# A fixed VOICENAV_TOKEN keeps open pages working when a hosted instance restarts.
+TOKEN = os.environ.get("VOICENAV_TOKEN") or secrets.token_urlsafe(32)
 SANDBOX = "sandbox allow-scripts allow-forms allow-popups allow-modals"
 STORE = Store()
 STUDIO = Studio(STORE)
@@ -205,14 +212,30 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
+    def locked(self):
+        """With VOICENAV_PASSWORD set, ask for it (HTTP Basic auth, any user name) and report True until given."""
+        password = os.environ.get("VOICENAV_PASSWORD")
+        if not password:
+            return False
+        try:
+            given = base64.b64decode(self.headers.get("Authorization", "").removeprefix("Basic ")).decode()
+        except ValueError:
+            given = ""
+        if secrets.compare_digest(given.partition(":")[2].encode(), password.encode()):
+            return False
+        self.send(401, "Password required", "text/plain", {"WWW-Authenticate": 'Basic realm="VoiceNav"'})
+        return True
+
     def do_GET(self):
         host = self.headers.get("Host")
         url = urlparse(self.path)
         path = url.path
-        if host == f"localhost:{PORT}" and path.startswith("/sites/"):
-            return self.site(path, url)
-        if host != f"127.0.0.1:{PORT}":
+        if host == SITES_HOST and path.startswith("/sites/"):
+            return self.site(path, url, sandbox=bool(PUBLIC))
+        if host != APP_HOST:
             return self.send(403, "Forbidden", "text/plain")
+        if self.locked():
+            return
         if path in {"/", "/studio", "/navigator", "/projects"} or path.startswith("/studio/"):
             page = (STATIC / "index.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
             return self.send(200, page, "text/html; charset=utf-8")
@@ -247,11 +270,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if (
-            self.headers.get("Host") != f"127.0.0.1:{PORT}"
+            self.headers.get("Host") != APP_HOST
             or self.headers.get("X-Demo-Token") != TOKEN
             or self.headers.get("Origin") not in (None, ORIGIN)
         ):
             return self.send(403, json.dumps({"error": "Local requests only"}))
+        if self.locked():
+            return
         path = self.path.removeprefix("/api/")
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -304,7 +329,7 @@ def close_navigator():
 def main():
     load_environment()
     atexit.register(close_navigator)
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    server = ThreadingHTTPServer(("0.0.0.0" if PUBLIC else "127.0.0.1", PORT), Handler)
     server.daemon_threads = True
     print(f"VoiceNav: {ORIGIN}", flush=True)
     try:
