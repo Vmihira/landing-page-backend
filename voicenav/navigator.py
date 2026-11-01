@@ -4,6 +4,7 @@ Every phase is announced before it happens (thinking, the next action and its ta
 settling), and a viewer thread streams the agent's own page as frames, so the screen never looks stuck.
 """
 
+import os
 import threading
 import time
 
@@ -143,7 +144,11 @@ class Session:
         except Exception as error:
             message = str(error) if isinstance(error, (ValueError, RuntimeError, TimeoutError)) else (
                 f"The agent stopped: {type(error).__name__}")
-            if "daemon" in message or "DevToolsActivePort" in message or "remote debugging" in message:
+            if os.environ.get("BU_CDP_URL"):
+                # A browser VoiceNav reaches by URL (the hosted Chromium, or a separate Chrome), not the user's own.
+                if "daemon" in message or "unreachable" in message:
+                    message += " · The browser isn't reachable yet; try again in a few seconds."
+            elif "daemon" in message or "DevToolsActivePort" in message or "remote debugging" in message:
                 message += " · Allow remote debugging in Chrome (chrome://inspect/#remote-debugging) and try again."
             self.channel.push("error", message=message, elapsed_ms=self._elapsed())
             self.status = "error"
